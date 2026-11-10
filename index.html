@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>クーポン獲得デモアプリ</title>
+  <!-- QRコード生成ライブラリ (qrcodejs) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --accent: #f59e0b;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #cbd5e1;
+      --success: #16a34a;
+      --danger: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 40px;
+    }
+
+    /* 上部のモード切替バー（デモ用） */
+    .mode-switcher {
+      width: 100%;
+      background: #1e293b;
+      color: #fff;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .mode-btn {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      color: #1e293b;
+      border-color: var(--accent);
+    }
+
+    /* メインコンテナ（スマホ画面風の枠） */
+    .container {
+      width: 100%;
+      max-width: 420px;
+      margin-top: 24px;
+      padding: 0 16px;
+    }
+
+    .screen {
+      display: none;
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 24px;
+      min-height: 420px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      position: relative;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    /* 画面番号バッジ（デモ確認用） */
+    .step-badge {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      background: #f1f5f9;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    h1, h2 {
+      margin-bottom: 24px;
+      font-size: 1.4rem;
+      color: var(--text);
+    }
+
+    /* 手書き図の楕円ボタン風スタイル */
+    .oval-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 220px;
+      padding: 16px 32px;
+      font-size: 1.15rem;
+      font-weight: bold;
+      color: var(--text);
+      background: #fff;
+      border: 2.5px solid var(--text);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform 0.15s, background-color 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 0 var(--text);
+      margin: 12px 0;
+    }
+
+    .oval-btn:hover {
+      background: #f1f5f9;
+      transform: translateY(-1px);
+    }
+
+    .oval-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 var(--text);
+    }
+
+    .oval-btn.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: #1e3a8a;
+      box-shadow: 0 4px 0 #1e3a8a;
+    }
+
+    .oval-btn.primary:hover {
+      background: var(--primary-hover);
+    }
+
+    /* フォーム要素 */
+    .form-group {
+      width: 100%;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+      font-size: 1rem;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 1.05rem;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+    }
+
+    /* 下線のみの入力欄（4. クーポン番号画面用） */
+    .underline-input {
+      width: 85%;
+      border: none;
+      border-bottom: 3px solid var(--text);
+      font-size: 1.6rem;
+      text-align: center;
+      padding: 10px 4px;
+      margin: 24px 0 32px;
+      outline: none;
+      letter-spacing: 0.12em;
+      font-weight: bold;
+      background: transparent;
+      text-transform: uppercase;
+    }
+
+    .underline-input:focus {
+      border-bottom-color: var(--primary);
+    }
+
+    /* 5. クーポンかくとく！画面の演出 */
+    .congrats-box {
+      padding: 20px;
+      animation: popIn 0.4s ease-out;
+    }
+
+    .congrats-icon {
+      font-size: 4rem;
+      margin-bottom: 16px;
+    }
+
+    .congrats-title {
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--danger);
+      margin-bottom: 16px;
+      letter-spacing: 0.05em;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.7); opacity: 0; }
+      80% { transform: scale(1.05); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .error-msg {
+      color: var(--danger);
+      font-size: 0.9rem;
+      margin-top: -12px;
+      margin-bottom: 16px;
+      min-height: 1.2em;
+      font-weight: bold;
+    }
+
+    .sub-link {
+      margin-top: 24px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: none;
+      border: none;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    /* 管理者パネル用スタイル */
+    .admin-card {
+      width: 100%;
+      text-align: left;
+    }
+
+    .code-display-box {
+      background: #fef3c7;
+      border: 2px dashed var(--accent);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      margin: 16px 0;
+    }
+
+    .code-display-label {
+      font-size: 0.85rem;
+      color: #92400e;
+      margin-bottom: 4px;
+    }
+
+    .code-display-value {
+      font-size: 2rem;
+      font-weight: 900;
+      color: #b45309;
+      letter-spacing: 0.15em;
+    }
+
+    .qr-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px 0 12px;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    #qrcode {
+      margin: 8px 0;
+    }
+
+    .hint-box {
+      background: #f1f5f9;
+      border-left: 4px solid var(--primary);
+      padding: 12px;
+      font-size: 0.82rem;
+      color: #334155;
+      line-height: 1.5;
+      margin-top: 16px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 上部バー：ユーザー画面と管理者（発行）画面の切り替え -->
+  <div class="mode-switcher">
+    <button id="btnUserMode" class="mode-btn active" onclick="switchMode('user')">📱 ユーザー画面（アプリ）</button>
+    <button id="btnAdminMode" class="mode-btn" onclick="switchMode('admin')">🛠️ 管理者画面（コード＆QR発行）</button>
+  </div>
+
+  <div class="container">
+
+    <!-- ==========================================
+         画面1：トップ画面（ログインページへ）
+    =========================================== -->
+    <div id="screen-1" class="screen active">
+      <span class="step-badge">画面 1 / 5</span>
+      <button class="oval-btn" onclick="goToScreen(2)">ログインページ</button>
+    </div>
+
+    <!-- ==========================================
+         画面2：ログイン画面（名前・パスワード）
+    =========================================== -->
+    <div id="screen-2" class="screen">
+      <span class="step-badge">画面 2 / 5</span>
+      <div class="form-group">
+        <label for="loginName">名前：</label>
+        <input type="text" id="loginName" class="form-input" placeholder="例：山田 太郎">
+      </div>
+      <div class="form-group">
+        <label for="loginPass">パスワード：</label>
+        <input type="password" id="loginPass" class="form-input" placeholder="任意の文字でOK">
+      </div>
+      <div id="loginError" class="error-msg"></div>
+      <button class="oval-btn primary" onclick="handleLogin()">次へ進む →</button>
+      <button class="sub-link" onclick="goToScreen(1)">← 戻る</button>
+    </div>
+
+    <!-- ==========================================
+         画面3：メニュー画面（クーポンかくとく / 景品）
+    =========================================== -->
+    <div id="screen-3" class="screen">
+      <span class="step-badge">画面 3 / 5</span>
+      <p id="welcomeText" style="margin-bottom: 16px; color: var(--muted); font-size: 0.9rem;"></p>
+      <button class="oval-btn primary" onclick="goToScreen(4)">クーポンかくとく</button>
+      <button class="oval-btn" onclick="showPrizeModal()">景 品</button>
+      <button class="sub-link" onclick="goToScreen(1)">ログアウトして最初に戻る</button>
+    </div>
+
+    <!-- ==========================================
+         画面4：クーポン番号入力画面
+    =========================================== -->
+    <div id="screen-4" class="screen">
+      <span class="step-badge">画面 4 / 5</span>
+      <h2>クーポン番号</h2>
+      <input type="text" id="couponInput" class="underline-input" placeholder="コードを入力" autocomplete="off">
+      <div id="couponError" class="error-msg"></div>
+      <button class="oval-btn primary" onclick="verifyCoupon()">決定</button>
+      <button class="sub-link" onclick="goToScreen(3)">← メニューに戻る</button>
+    </div>
+
+    <!-- ==========================================
+         画面5：クーポン獲得完了画面
+    =========================================== -->
+    <div id="screen-5" class="screen">
+      <span class="step-badge">画面 5 / 5</span>
+      <div class="congrats-box">
+        <div class="congrats-icon">🎉</div>
+        <div class="congrats-title">クーポンかくとく！</div>
+        <p style="color: var(--muted); margin-bottom: 24px;">
+          おめでとうございます！<br>クーポンが正常に適用されました。
+        </p>
+      </div>
+      <button class="oval-btn" onclick="goToScreen(3)">メニューへ戻る</button>
+    </div>
+
+    <!-- ==========================================
+         おまけ：景品確認画面
+    =========================================== -->
+    <div id="screen-prize" class="screen">
+      <span class="step-badge">景品一覧</span>
+      <h2>🎁 景品リスト（デモ）</h2>
+      <p style="margin-bottom: 16px; color: var(--muted);">獲得したクーポン数に応じて交換できます</p>
+      <div style="width:100%; text-align:left; background:#f8fafc; padding:16px; border-radius:10px; margin-bottom:20px; border:1px solid var(--border);">
+        <p style="margin-bottom:8px;">✅ <strong>現在の獲得状態：</strong> <span id="couponStatusText">未獲得</span></p>
+        <hr style="border:none; border-top:1px solid var(--border); margin:10px 0;">
+        <p>🏅 地域特産品セット（クーポン1枚）</p>
+        <p style="margin-top:6px;">☕ ドリンク無料引換券（クーポン1枚）</p>
+      </div>
+      <button class="oval-btn" onclick="goToScreen(3)">← メニューに戻る</button>
+    </div>
+
+    <!-- ==========================================
+         管理者画面：クーポン発行＆QRコード表示
+    =========================================== -->
+    <div id="screen-admin" class="screen">
+      <div class="admin-card">
+        <h2 style="text-align: center; margin-bottom: 12px;">🛠️ クーポン＆QR発行</h2>
+        <p style="font-size: 0.88rem; color: var(--muted); margin-bottom: 16px; text-align: center;">
+          新しいクーポンコードを発行し、アプリを開くQRコードを生成します。
+        </p>
+
+        <div class="code-display-box">
+          <div class="code-display-label">現在有効なクーポン番号</div>
+          <div id="currentValidCode" class="code-display-value">1234</div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <button class="oval-btn primary" style="min-width: auto; flex: 1; padding: 12px; font-size: 0.95rem;" onclick="generateNewCoupon()">
+            🎲 ランダム発行
+          </button>
+          <button class="oval-btn" style="min-width: auto; flex: 1; padding: 12px; font-size: 0.95rem;" onclick="setCustomCoupon()">
+            ✏️ 好きな番号にする
+          </button>
+        </div>
+
+        <div class="qr-wrapper">
+          <strong style="font-size: 0.9rem; margin-bottom: 6px;">📲 アプリ起動用 QRコード</strong>
+          <div id="qrcode"></div>
+          <p id="qrUrlText" style="font-size: 0.72rem; color: var(--muted); word-break: break-all; margin-top: 8px; text-align: center;"></p>
+        </div>
+
+        <div class="form-group" style="margin-top: 12px; margin-bottom: 8px;">
+          <label for="baseUrlInput" style="font-size: 0.8rem; color: var(--muted);">ベースURL（スマホ読み取り用アドレス）：</label>
+          <input type="text" id="baseUrlInput" class="form-input" style="font-size: 0.85rem; padding: 8px;" oninput="updateQRCode()">
+        </div>
+
+        <div class="hint-box">
+          <strong>💡 使い方：</strong><br>
+          1. 上で発行された「現在有効なクーポン番号」を控えておきます。<br>
+          2. スマホでQRコードを読み取ると「画面1（ログインページ）」が開きます。<br>
+          3. 画面4でクーポン番号を入力すると「クーポンかくとく！」になります。
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // 現在有効なクーポンコード（初期値: 1234）
+    let validCouponCode = localStorage.getItem('demo_valid_coupon') || '1234';
+    let hasAcquiredCoupon = false;
+    let qrCodeInstance = null;
+
+    // 初期化処理：URLパラメータに ?v=XXXX が含まれていればそのコードを有効コードとして受け取る
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const urlValidCode = params.get('v');
+      if (urlValidCode) {
+        validCouponCode = urlValidCode.toUpperCase();
+        localStorage.setItem('demo_valid_coupon', validCouponCode);
+      }
+
+      document.getElementById('currentValidCode').textContent = validCouponCode;
+
+      // 初期URLをセット（クエリを除いた現在のURL）
+      const cleanUrl = window.location.href.split('?')[0];
+      document.getElementById('baseUrlInput').value = cleanUrl;
+
+      updateQRCode();
+    });
+
+    // 画面遷移関数
+    function goToScreen(screenNum) {
+      document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+      if (screenNum === 'prize') {
+        document.getElementById('screen-prize').classList.add('active');
+      } else if (screenNum === 'admin') {
+        document.getElementById('screen-admin').classList.add('active');
+      } else {
+        document.getElementById('screen-' + screenNum).classList.add('active');
+      }
+
+      // エラー表示のリセット
+      document.getElementById('loginError').textContent = '';
+      document.getElementById('couponError').textContent = '';
+    }
+
+    // 上部タブ：ユーザー画面 / 管理者画面の切り替え
+    function switchMode(mode) {
+      const btnUser = document.getElementById('btnUserMode');
+      const btnAdmin = document.getElementById('btnAdminMode');
+
+      if (mode === 'admin') {
+        btnUser.classList.remove('active');
+        btnAdmin.classList.add('active');
+        goToScreen('admin');
+        updateQRCode();
+      } else {
+        btnAdmin.classList.remove('active');
+        btnUser.classList.add('active');
+        goToScreen(1);
+      }
+    }
+
+    // 画面2：ログイン処理（デモなので名前が入っていればOK）
+    function handleLogin() {
+      const name = document.getElementById('loginName').value.trim();
+      const pass = document.getElementById('loginPass').value.trim();
+      const errorEl = document.getElementById('loginError');
+
+      if (!name) {
+        errorEl.textContent = '※名前を入力してください';
+        return;
+      }
+      if (!pass) {
+        errorEl.textContent = '※パスワードを入力してください';
+        return;
+      }
+
+      document.getElementById('welcomeText').textContent = `ようこそ、${name} さん！`;
+      goToScreen(3);
+    }
+
+    // 画面3：景品ボタン
+    function showPrizeModal() {
+      const statusEl = document.getElementById('couponStatusText');
+      if (hasAcquiredCoupon) {
+        statusEl.textContent = '🎉 クーポン獲得済み！（1枚）';
+        statusEl.style.color = 'var(--success)';
+      } else {
+        statusEl.textContent = '未獲得（0枚）';
+        statusEl.style.color = 'var(--muted)';
+      }
+      goToScreen('prize');
+    }
+
+    // 画面4：クーポン番号チェック
+    function verifyCoupon() {
+      const input = document.getElementById('couponInput').value.trim().toUpperCase();
+      const errorEl = document.getElementById('couponError');
+
+      if (!input) {
+        errorEl.textContent = '※クーポン番号を入力してください';
+        return;
+      }
+
+      // 管理者画面で発行されたコード（または初期値1234）と一致するか判定
+      if (input === validCouponCode.toUpperCase()) {
+        hasAcquiredCoupon = true;
+        document.getElementById('couponInput').value = '';
+        goToScreen(5);
+      } else {
+        errorEl.textContent = `※番号が違います（現在の正解コード: ${validCouponCode}）`;
+      }
+    }
+
+    // 管理者画面：ランダムな4桁英数字コードを発行
+    function generateNewCoupon() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let result = '';
+      for (let i = 0; i < 4; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      setValidCoupon(result);
+    }
+
+    // 管理者画面：好きな番号を設定
+    function setCustomCoupon() {
+      const custom = prompt('設定したいクーポン番号を入力してください（例: 7777 や KITZ など）:', validCouponCode);
+      if (custom && custom.trim() !== '') {
+        setValidCoupon(custom.trim().toUpperCase());
+      }
+    }
+
+    function setValidCoupon(newCode) {
+      validCouponCode = newCode;
+      localStorage.setItem('demo_valid_coupon', validCouponCode);
+      document.getElementById('currentValidCode').textContent = validCouponCode;
+      updateQRCode();
+    }
+
+    // QRコードの生成・更新
+    function updateQRCode() {
+      const baseUrl = document.getElementById('baseUrlInput').value.trim();
+      const qrContainer = document.getElementById('qrcode');
+      qrContainer.innerHTML = '';
+
+      // 別の端末（スマホ）で読み取ったときも同じ正解コードが共有されるよう ?v=コード を付与
+      const separator = baseUrl.includes('?') ? '&' : '?';
+      const targetUrl = `${baseUrl}${separator}v=${encodeURIComponent(validCouponCode)}`;
+
+      document.getElementById('qrUrlText').textContent = targetUrl;
+
+      if (typeof QRCode !== 'undefined') {
+        qrCodeInstance = new QRCode(qrContainer, {
+          text: targetUrl,
+          width: 180,
+          height: 180,
+          colorDark: "#1e293b",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }
+    }
+  </script>
+</body>
+</html>
